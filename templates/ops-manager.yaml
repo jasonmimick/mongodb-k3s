@@ -1,0 +1,69 @@
+---
+apiVersion: mongodb.com/v1
+kind: MongoDBOpsManager
+metadata:
+  name: {{ .Release.Name }}-ops-manager
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: mongodb-ops-manager
+spec:
+  replicas: 1 
+  version: 4.2.4
+  adminCredentials: {{ .Release.Name }}-ops-manager-secret
+  podSpec:
+    containers: 
+    - name: ops-manager
+      env:
+      - name: SKIP_OPS_MANAGER_REGISTRATION
+        value: "true"
+
+  # optional, enabled by default
+  # Allows to configure backup in Ops Manager
+  backup:
+    enabled: true
+    oplogStores:
+    - mongodbResourceRef:
+        name: ops-manager-backup
+      name: oplog1
+    s3Stores:
+    - mongodbResourceRef:
+        name: ops-manager-backup
+      name: s3-gateway-store-1
+      pathStyleAccessEnabled: true
+      s3BucketEndpoint: us-east-1.elb.amazonaws.com:7777
+      s3BucketName: a02aa5fe4483711eab8591238e00fec6-1816320124
+      s3SecretRef:
+        name: s3-gateway-credentials
+    # Configures Head db storage parameters
+    headDB:
+      # optional. Default storage is 30G
+      storage: 5G
+
+
+  # the Ops Manager configuration. All the values must be of type string
+  configuration:
+    mms.fromEmailAddr: "admin@mongodb.com"
+    mms.replyToEmailAddr: "admin@mongodb.com"
+    mms.adminEmailAddr: "admin@mongodb.com"
+    mms.mail.transport: "smtp"
+    mms.mail.hostname: "localhost"
+    mms.mail.port: "25"
+
+  applicationDatabase:
+    members: 3
+    version: 4.2.0
+    persistent: true
+    podSpec:
+      cpu: '0.25'
+---
+#apiVersion: settings.k8s.io/v1alpha1
+#kind: PodPreset
+#metadata:
+#  name: mongodb-ops-manager-skip-registration
+#spec:
+#  selector:
+#    matchLabels:
+#      app: mongodb-ops-manager
+#  env:
+#    - name: SKIP_OPS_MANAGER_REGISTRATION
+#      value: "true"

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-ops-manager-project
+  namespace: {{ .Release.Namespace }}
+  labels:
+    product: {{ .Chart.Name }}
+data:
+  projectName: {{ .Release.Name }}
+  baseUrl:  http://{{ .Release.Name }}-ops-manager-svc.{{ .Release.Namespace }}.svc.cluster.local:8080
+  credentials: {{ .Release.Name }}-ops-manager-admin-key
