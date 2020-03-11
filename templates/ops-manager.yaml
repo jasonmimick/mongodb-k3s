@@ -12,7 +12,7 @@ spec:
   adminCredentials: {{ .Release.Name }}-ops-manager-secret
   podSpec:
     containers: 
-    - name: ops-manager
+    - name: {{ .Release.Name }}-ops-manager
       env:
       - name: SKIP_OPS_MANAGER_REGISTRATION
         value: "true"
@@ -48,6 +48,7 @@ spec:
     mms.mail.transport: "smtp"
     mms.mail.hostname: "localhost"
     mms.mail.port: "25"
+    mms.ignoreInitialUiSetup: "true"
 
   applicationDatabase:
     members: 3
@@ -55,15 +56,3 @@ spec:
     persistent: true
     podSpec:
       cpu: '0.25'
----
-#apiVersion: settings.k8s.io/v1alpha1
-#kind: PodPreset
-#metadata:
-#  name: mongodb-ops-manager-skip-registration
-#spec:
-#  selector:
-#    matchLabels:
-#      app: mongodb-ops-manager
-#  env:
-#    - name: SKIP_OPS_MANAGER_REGISTRATION
-#      value: "true"
