@@ -16,3 +16,9 @@ You can connect to the database with the `uri` found
 in the binding secret.
 
 
+## GCE
+
+Installs an n-node k3s cluster into GCE vms.
+
+./mongodb-k3sup-gcp.sh
+
