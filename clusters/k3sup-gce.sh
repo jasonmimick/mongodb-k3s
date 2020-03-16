@@ -25,15 +25,16 @@ up() {
         --tags "${ORG}","${CLUSTER_TAG}","${CLUSTER_TAG}-master"
 
     gcloud compute instances create \
-        "${CLUSTER_TAG}-worker-1" "${CLUSTER_TAG}-worker-2" "${CLUSTER_TAG}-worker-3" \
+        "${CLUSTER_TAG}-worker-0" "${CLUSTER_TAG}-worker-1" "${CLUSTER_TAG}-worker-2" \
         --machine-type "${INSTANCE_TYPE}" \
         --zone "${ZONE}" \
         --tags "${ORG}","${CLUSTER_TAG}","${CLUSTER_TAG}-worker" 
 
-    gcloud compute instances create "${CLUSTER_TAG}-mongodb-manager" \
+    MMS_NODES_TAG="${CLUSTER_TAG}-ops-manager"
+    gcloud compute instances create "${MMS_NODES_TAG}-0" "${MMS_NODES_TAG}-1" \
         --machine-type "${OPS_MANAGER_INSTANCE_TYPE}" \
         --zone "${ZONE}" \
-        --tags "${ORG}","${CLUSTER_TAG}","${CLUSTER_TAG}-ops-manager"
+        --tags "${ORG}","${CLUSTER_TAG}","${MMS_NODES_TAG}"
 
     gcloud compute config-ssh
     )
@@ -54,16 +55,7 @@ up() {
                   --target-tags="${CLUSTER_TAG}"
 
     gcloud compute instances list \
-        --filter=tags.items="${CLUSTER_TAG}-ops-manager" \
-        --format="get(networkInterfaces[0].accessConfigs.natIP)" | \
-            xargs -L1 k3sup join \
-            --server-ip $primary_server_ip \
-            --ssh-key ~/.ssh/google_compute_engine \
-            --user $(whoami) \
-            --ip
-
-    gcloud compute instances list \
-        --filter=tags.items="${CLUSTER_TAG}-worker" \
+        --filter=tags.items="${CLUSTER_TAG}" \
         --format="get(networkInterfaces[0].accessConfigs.natIP)" | \
             xargs -L1 k3sup join \
             --server-ip $primary_server_ip \
