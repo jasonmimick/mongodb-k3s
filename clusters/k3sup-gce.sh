@@ -3,7 +3,8 @@
 set -u
 
 #CLUSTER_TAG=mongodb-k3s-${CLUSTER_TAG:-$( mktemp | cut -d'.' -f2 | tr '[:upper:]' '[:lower:]' )}
-CLUSTER_TAG=mongodb-k3s-${CLUSTER_TAG:-$( curl -s https://frightanic.com/goodies_content/docker-names.php | tr '_' '-' )}
+ORG="mongodb-k3s"
+CLUSTER_TAG=${ORG}-${CLUSTER_TAG:-$( curl -s https://frightanic.com/goodies_content/docker-names.php | tr '_' '-' )}
 ZONE=${ZONE:-us-central1-b}
 echo "Installing MongoDB Enterprise Data Services Cluster"
 echo "Powered by Google Compute Engine"
@@ -13,27 +14,26 @@ echo "CLUSTER_TAG=${CLUSTER_TAG} ZONE=${ZONE}"
 
 INSTANCE_TYPE=${WORKER_INSTANCE_TYPE:-n1-standard-1}
 OPS_MANAGER_INSTANCE_TYPE=${MANAGER_INSTANCE_TYPE:-n1-standard-8}
+ZONE=${ZONE:-us-central1-b}
 
 up() {
-    INSTANCE_TYPE=${INSTANCE_TYPE:-n1-standard-1}
-    ZONE=${ZONE:-us-central1-b}
     (
     set -x
     gcloud compute instances create "${CLUSTER_TAG}-master" \
         --machine-type "${INSTANCE_TYPE}" \
         --zone "${ZONE}" \
-        --tags "${CLUSTER_TAG}","${CLUSTER_TAG}-master"
+        --tags "${ORG}","${CLUSTER_TAG}","${CLUSTER_TAG}-master"
 
     gcloud compute instances create \
         "${CLUSTER_TAG}-worker-1" "${CLUSTER_TAG}-worker-2" "${CLUSTER_TAG}-worker-3" \
         --machine-type "${INSTANCE_TYPE}" \
         --zone "${ZONE}" \
-        --tags "${CLUSTER_TAG}","${CLUSTER_TAG}-worker" 
+        --tags "${ORG}","${CLUSTER_TAG}","${CLUSTER_TAG}-worker" 
 
     gcloud compute instances create "${CLUSTER_TAG}-mongodb-manager" \
         --machine-type "${OPS_MANAGER_INSTANCE_TYPE}" \
         --zone "${ZONE}" \
-        --tags "${CLUSTER_TAG}","${CLUSTER_TAG}-ops-manager"
+        --tags "${ORG}","${CLUSTER_TAG}","${CLUSTER_TAG}-ops-manager"
 
     gcloud compute config-ssh
     )
@@ -77,7 +77,7 @@ up() {
 }
 
 down() {
-    ZONE=${ZONE:-us-central1-b}
+    CLUSTER_TAG="${1}"
     (
     set -x
     gcloud compute instances list \
@@ -85,17 +85,32 @@ down() {
             xargs gcloud compute instances delete \
               --zone "$ZONE" -q --delete-disks all
 
-    gcloud compute firewall-rules delete "${CLUSTER_TAG}"
+    gcloud compute firewall-rules delete "${CLUSTER_TAG}" -q
+    )
+}
+
+list() {
+    (
+    set -x
+    gcloud compute instances list \
+        --filter=tags.items="${ORG}"
     )
 }
 
 usage() {
-    echo "Bootstrap or tear down a k3s cluster on GCE"
-    echo "  up"
-    echo "  down"
+    echo "Bootstrap or tear down a mongodb-k8s cluster running k3s on GCE"
+    echo "k3sup-gcp up"
+    echo "   Provisions k3s cluster. Sets CLUSTER_TAG env variable. " 
+    echo ""
+    echo "k3sup down <CLUSTER_TAG>"
+    echo "   Tears down cluster, requires CLUSTER_TAG argument."
 }
 
 case "${1:-usage}" in
+  list)
+    shift
+    list "$@"
+    ;;
   up)
     shift
     up "$@"
