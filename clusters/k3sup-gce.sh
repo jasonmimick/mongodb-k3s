@@ -2,19 +2,29 @@
 
 set -u
 
-#CLUSTER_TAG=mongodb-k3s-${CLUSTER_TAG:-$( mktemp | cut -d'.' -f2 | tr '[:upper:]' '[:lower:]' )}
 ORG="mongodb-k3s"
-CLUSTER_TAG=${ORG}-${CLUSTER_TAG:-$( curl -s https://frightanic.com/goodies_content/docker-names.php | tr '_' '-' )}
-ZONE=${ZONE:-us-central1-b}
+NEW_TAG=$( curl -s https://frightanic.com/goodies_content/docker-names.php | tr '_' '-' )
+NEW_CLUSTER_TAG="${ORG}-${NEW_TAG}"
+
+CLUSTER_TAG=${CLUSTER_TAG:-${NEW_CLUSTER_TAG}}
+
 echo "Installing MongoDB Enterprise Data Services Cluster"
 echo "Powered by Google Compute Engine"
 echo "mongodb-k3s sandbox demonstration kit"
-echo "For research & development only"
-echo "CLUSTER_TAG=${CLUSTER_TAG} ZONE=${ZONE}"
-
+echo "For research & development purposes only."
+echo "Settings:"
 INSTANCE_TYPE=${WORKER_INSTANCE_TYPE:-n1-standard-1}
 OPS_MANAGER_INSTANCE_TYPE=${MANAGER_INSTANCE_TYPE:-n1-standard-8}
 ZONE=${ZONE:-us-central1-b}
+ZONE_DR=${ZONE_DR:-us-central1-c}
+MMS_NODES_TAG="${CLUSTER_TAG}-ops-manager"
+
+echo "CLUSTER_TAG=${CLUSTER_TAG}"
+echo "ZONE=${ZONE}"
+echo "ZONE_DR=${ZONE_DR}"
+echo "INSTANCE_TYPE=${INSTANCE_TYPE}"
+echo "OPS_MANAGER_INSTANCE_TYPE=${OPS_MANAGER_INSTANCE_TYPE}"
+echo "MMS_NODES_TAG=${MMS_NODES_TAG}"
 
 up() {
     (
@@ -30,11 +40,20 @@ up() {
         --zone "${ZONE}" \
         --tags "${ORG}","${CLUSTER_TAG}","${CLUSTER_TAG}-worker" 
 
-    MMS_NODES_TAG="${CLUSTER_TAG}-ops-manager"
-    gcloud compute instances create "${MMS_NODES_TAG}-0" "${MMS_NODES_TAG}-1" \
+    gcloud compute instances create "${MMS_NODES_TAG}-0" \
         --machine-type "${OPS_MANAGER_INSTANCE_TYPE}" \
         --zone "${ZONE}" \
-        --tags "${ORG}","${CLUSTER_TAG}","${MMS_NODES_TAG}"
+        --tags "${ORG}","${CLUSTER_TAG}","${MMS_NODES_TAG}","${MMS_NODES_TAG}-${ZONE}"
+
+    gcloud compute instances create "${MMS_NODES_TAG}-1" \
+        --machine-type "${OPS_MANAGER_INSTANCE_TYPE}" \
+        --zone "${ZONE}" \
+        --tags "${ORG}","${CLUSTER_TAG}","${MMS_NODES_TAG}","${MMS_NODES_TAG}-${ZONE}"
+
+    gcloud compute instances create "${MMS_NODES_TAG}-2" \
+        --machine-type "${OPS_MANAGER_INSTANCE_TYPE}" \
+        --zone "${ZONE_DR}" \
+        --tags "${ORG}","${CLUSTER_TAG}","${MMS_NODES_TAG}","${MMS_NODES_TAG}-${ZONE_DR}"
 
     gcloud compute config-ssh
     )
@@ -55,7 +74,16 @@ up() {
                   --target-tags="${CLUSTER_TAG}"
 
     gcloud compute instances list \
-        --filter=tags.items="${CLUSTER_TAG}" \
+        --filter=tags.items="${CLUSTER_TAG}-worker" \
+        --format="get(networkInterfaces[0].accessConfigs.natIP)" | \
+            xargs -L1 k3sup join \
+            --server-ip $primary_server_ip \
+            --ssh-key ~/.ssh/google_compute_engine \
+            --user $(whoami) \
+            --ip
+
+    gcloud compute instances list \
+        --filter=tags.items="${MMS_NODES_TAG}" \
         --format="get(networkInterfaces[0].accessConfigs.natIP)" | \
             xargs -L1 k3sup join \
             --server-ip $primary_server_ip \
@@ -66,16 +94,32 @@ up() {
 
     export KUBECONFIG=`pwd`/kubeconfig
     kubectl get nodes
+    kubectl label node ${MMS_NODES_TAG}-{0,1,2} kubernetes.io/role=mongodb-ops-manager
+    kubectl label node ${CLUSTER_TAG}-worker-{0,1,2} kubernetes.io/role=mongodb-node
+
 }
 
 down() {
     CLUSTER_TAG="${1}"
+    MMS_NODES_TAG="${CLUSTER_TAG}-ops-manager"
     (
     set -x
     gcloud compute instances list \
-        --filter=tags.items="${CLUSTER_TAG}" --format="get(name)" | \
+        --filter=tags.items="${CLUSTER_TAG}-worker" --format="get(name)" | \
             xargs gcloud compute instances delete \
-              --zone "$ZONE" -q --delete-disks all
+              --zone "${ZONE}" -q --delete-disks all 
+    gcloud compute instances list \
+        --filter=tags.items="${MMS_NODES_TAG}-${ZONE}" --format="get(name)" | \
+            xargs gcloud compute instances delete \
+              --zone "${ZONE}" -q --delete-disks all 
+    gcloud compute instances list \
+        --filter=tags.items="${MMS_NODES_TAG}-${ZONE_DR}" --format="get(name)" | \
+            xargs gcloud compute instances delete \
+              --zone "${ZONE_DR}" -q --delete-disks all 
+    gcloud compute instances list \
+        --filter=tags.items="${CLUSTER_TAG}-master" --format="get(name)" | \
+            xargs gcloud compute instances delete \
+              --zone "${ZONE}" -q --delete-disks all 
 
     gcloud compute firewall-rules delete "${CLUSTER_TAG}" -q
     )

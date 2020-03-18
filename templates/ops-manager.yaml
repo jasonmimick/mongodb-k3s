@@ -22,14 +22,14 @@ spec:
   # Allows to configure backup in Ops Manager
   backup:
     enabled: true
-    oplogStores:
+    opLogStores:
     - name: oplog1
       mongodbResourceRef:
-        name: ops-manager-backup
+        name: {{ .Release.Name }}-ops-manager-backup
     s3Stores:
     - name: s3-gateway-store-1
       mongodbResourceRef:
-        name: ops-manager-backup
+        name: {{ .Release.Name }}-ops-manager-backup
       pathStyleAccessEnabled: true
       #s3BucketEndpoint: us-east-1.elb.amazonaws.com:7777
       s3BucketEndpoint: s3-gateway-tardigrade-gateway-svc 
@@ -37,6 +37,15 @@ spec:
       s3BucketName: test4 
       s3SecretRef:
         name: s3-gateway-credentials
+    podSpec:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/role 
+                operator: In
+                values:
+                - mongodb-ops-manager 
 
 
   # the Ops Manager configuration. All the values must be of type string
