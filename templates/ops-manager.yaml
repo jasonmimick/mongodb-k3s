@@ -17,6 +17,14 @@ spec:
       env:
       - name: SKIP_OPS_MANAGER_REGISTRATION
         value: "true"
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+            - key: kubernetes.io/role 
+              operator: In
+              values:
+              - mongodb-ops-manager 
 
   # optional, enabled by default
   # Allows to configure backup in Ops Manager
@@ -25,14 +33,14 @@ spec:
     opLogStores:
     - name: oplog1
       mongodbResourceRef:
-        name: {{ .Release.Name }}-ops-manager-backup
+        name: {{ .Release.Name }}-ops-manager-backup 
     s3Stores:
-    - name: s3-gateway-store-1
+    - name: S3GatewayStore1
       mongodbResourceRef:
-        name: {{ .Release.Name }}-ops-manager-backup
+        name: {{ .Release.Name }}-ops-manager-backup 
       pathStyleAccessEnabled: true
       #s3BucketEndpoint: us-east-1.elb.amazonaws.com:7777
-      s3BucketEndpoint: s3-gateway-tardigrade-gateway-svc 
+      s3BucketEndpoint: http://s3-gateway-tardigrade-gateway-svc 
       #s3BucketName: a02aa5fe4483711eab8591238e00fec6-1816320124
       s3BucketName: test4 
       s3SecretRef:
@@ -45,7 +53,7 @@ spec:
               - key: kubernetes.io/role 
                 operator: In
                 values:
-                - mongodb-ops-manager 
+                - mongodb-ops-manager-backup-daemon 
 
 
   # the Ops Manager configuration. All the values must be of type string
@@ -64,3 +72,12 @@ spec:
     persistent: true
     podSpec:
       cpu: '0.25'
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/role 
+                operator: In
+                values:
+                - mongodb-ops-manager 
+

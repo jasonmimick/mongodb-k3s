@@ -53,7 +53,6 @@ rules:
   - watch
   - delete
   - update
-
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -91,7 +90,6 @@ rules:
   - create
   - list
   - watch
-
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -109,5 +107,51 @@ subjects:
   name: {{ .Values.operator.name }}
   namespace: {{ .Release.Namespace }}
 {{- end }}
-
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mongodb-enterprise-appdb
+  namespace: {{ .Release.Namespace }}
+  labels:
+    product: {{ .Chart.Name }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mongodb-enterprise-database-pods
+  namespace: {{ .Release.Namespace }}
+  labels:
+    product: {{ .Chart.Name }}
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: mongodb-enterprise-appdb
+  namespace: {{ .Release.Namespace }}
+  labels:
+    product: {{ .Chart.Name }}
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: mongodb-enterprise-appdb
+  namespace: {{ .Release.Namespace }}
+  labels:
+    product: {{ .Chart.Name }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: mongodb-enterprise-appdb
+subjects:
+  - kind: ServiceAccount
+    name: mongodb-enterprise-appdb
+    namespace: {{ .Release.Namespace }}
 

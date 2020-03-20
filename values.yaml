@@ -49,8 +49,8 @@ mongodb:
   cluster:
     members: 3
     clusterDomain: cluster.local
-    #version: 4.2.3-ent
-    version: 4.2.3
+    version: 4.2.3-ent
+    #version: 4.2.3
 
 # add users:
 
